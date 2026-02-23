@@ -1,17 +1,17 @@
 // ==UserScript==
-// @name         Note.ms 阅读体验增强
+// @name         Note.ms 增强
 // @namespace    https://note.ms/
-// @version      1.2.0
-// @description  优化 Note.ms，提供暗色模式、字体调整、行宽限制、数学公式渲染等功能，提升阅读体验。
+// @version      1.3.0
+// @description  提供暗色模式、字体调整、行宽限制、Markdown及KaTeX渲染等功能，提升阅读体验。
 // @author       Taffy
-// @match        https://note.ms/*
-// @match        http://note.ms/*
+// @match        *://note.ms/*
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @require      https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js
 // @require      https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js
 // @run-at       document-start
+// @license      MIT
 // ==/UserScript==
 
 (function () {
@@ -89,9 +89,14 @@
     font-family: var(--nme-font-family) !important;
     font-size: var(--nme-font-size) !important;
     line-height: var(--nme-line-height) !important;
+    height: auto !important;
+    min-height: 100%;
+    overflow-y: auto !important;
   }
   body {
-    transition: background .3s, color .3s;
+    transition: background 0.8s ease-in-out, color 0.8s ease-in-out;
+    margin: 0;
+    padding: 0;
   }
 
   /* --- 纸张容器 --- */
@@ -99,7 +104,17 @@
     background: var(--nme-paper) !important;
     border-color: var(--nme-border) !important;
     box-shadow: 0 2px 12px var(--nme-shadow) !important;
-    transition: background .3s, border-color .3s, box-shadow .3s;
+    transition: background 0.8s ease-in-out, border-color 0.8s ease-in-out, box-shadow 0.8s ease-in-out;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* --- 页面级滚动兜底：避免外层容器锁滚动 --- */
+  #wrapper, #container, #main, main {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
   }
 
   /* --- 编辑区 & 内容区：行宽限制 + 居中 + 自动换行 --- */
@@ -115,7 +130,7 @@
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     white-space: pre-wrap !important;
-    transition: color .3s;
+    transition: color 0.8s ease-in-out;
   }
 
   /* --- 编辑模式 textarea 居中 --- */
@@ -144,7 +159,7 @@
   /* --- 页脚 --- */
   .footer, footer, [class*="footer"] {
     color: var(--nme-text-secondary) !important;
-    transition: color .3s;
+    transition: color 0.8s ease-in-out;
     width: 100% !important;
   }
   .footer a, footer a {
@@ -156,7 +171,7 @@
     color: var(--nme-link) !important;
     text-decoration: none;
     border-bottom: 1px solid transparent;
-    transition: color .3s, border-color .3s;
+    transition: color 0.8s ease-in-out, border-color 0.8s ease-in-out;
   }
   a:hover {
     border-bottom-color: var(--nme-link);
@@ -216,11 +231,13 @@
     font-family: var(--nme-mono) !important;
     font-size: 0.88em !important;
     border: 1px solid var(--nme-code-border) !important;
-    transition: background .3s, color .3s, border-color .3s;
+    transition: background 0.8s ease-in-out, color 0.8s ease-in-out, border-color 0.8s ease-in-out;
     word-break: break-all !important;
   }
 
-  /*position: relative;
+  /* --- 代码块 --- */
+  .content pre {
+    position: relative;
     background: var(--nme-code-bg) !important;
     color: var(--nme-code-text) !important;
     padding: 1em 1.2em !important;
@@ -230,10 +247,12 @@
     font-size: 0.88em !important;
     line-height: 1.55 !important;
     overflow-x: auto !important;
+    overflow-y: auto !important;
+    max-height: 600px;
     margin-bottom: 1.2em !important;
     white-space: pre !important;
     word-wrap: normal !important;
-    transition: background .3s, color .3s, border-color .3s;
+    transition: background 0.8s ease-in-out, color 0.8s ease-in-out, border-color 0.8s ease-in-out;
   }
   .content pre code {
     background: none !important;
@@ -241,6 +260,8 @@
     padding: 0 !important;
     font-size: inherit !important;
     word-break: normal !important;
+    display: block;
+    min-width: 100%;
   }
 
   /* --- 代码块复制按钮 --- */
@@ -284,12 +305,12 @@
     opacity: 0.8;
   }
   .katex-display::after, .katex::after {
-    content: "点击复制";
+    content: "已复制！";
     position: absolute;
     bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--nme-text);
+    background: #34c759;
     color: var(--nme-paper);
     padding: 4px 8px;
     border-radius: 4px;
@@ -301,15 +322,9 @@
     white-space: nowrap;
     z-index: 100;
   }
-  .katex-display:hover::after, .katex:hover::after {
+  .katex-display.copied::after, .katex.copied::after {
     opacity: 1;
     transform: translateX(-50%) translateY(-4px);
-  }
-  .katex-display.copied::after, .katex.copied::after {
-    content: "已复制！";
-    background: #34c759
-    font-size: inherit !important;
-    word-break: normal !important;
   }
 
   /* --- 引用块 --- */
@@ -320,7 +335,7 @@
     color: var(--nme-text-secondary) !important;
     background: var(--nme-code-bg) !important;
     border-radius: 0 6px 6px 0 !important;
-    transition: background .3s, color .3s, border-color .3s;
+    transition: background 0.8s ease-in-out, color 0.8s ease-in-out, border-color 0.8s ease-in-out;
   }
 
   .content hr {
@@ -632,15 +647,34 @@
         if (!IS_MD) return;
         document.querySelectorAll('pre, code').forEach(el => {
             // 简单修复，确保不会破坏可能的子元素
-            if (el.children.length === 0 && (el.innerHTML.includes('&amp;#039;') || el.innerHTML.includes('&#039;'))) {
-                el.innerHTML = el.innerHTML
-                    .replace(/&amp;#039;/g, "'")
-                    .replace(/&#039;/g, "'")
-                    .replace(/&amp;quot;/g, '"')
-                    .replace(/&#034;/g, '"')
-                    .replace(/&amp;lt;/g, '&lt;')
-                    .replace(/&amp;gt;/g, '&gt;')
-                    .replace(/&amp;amp;/g, '&amp;');
+            if (el.children.length === 0) {
+                let html = el.innerHTML;
+                let changed = false;
+                
+                if (html.includes('&amp;#039;') || html.includes('&#039;')) {
+                    html = html.replace(/&amp;#039;/g, "'").replace(/&#039;/g, "'");
+                    changed = true;
+                }
+                if (html.includes('&amp;quot;') || html.includes('&#034;')) {
+                    html = html.replace(/&amp;quot;/g, '"').replace(/&#034;/g, '"');
+                    changed = true;
+                }
+                if (html.includes('&amp;lt;')) {
+                    html = html.replace(/&amp;lt;/g, '&lt;');
+                    changed = true;
+                }
+                if (html.includes('&amp;gt;')) {
+                    html = html.replace(/&amp;gt;/g, '&gt;');
+                    changed = true;
+                }
+                if (html.includes('&amp;amp;')) {
+                    html = html.replace(/&amp;amp;/g, '&amp;');
+                    changed = true;
+                }
+                
+                if (changed) {
+                    el.innerHTML = html;
+                }
             }
         });
     }
@@ -676,7 +710,7 @@
                     
                     navigator.clipboard.writeText(textToCopy).then(() => {
                         this.classList.add('copied');
-                        setTimeout(() => this.classList.remove('copied'), 1500);
+                        setTimeout(() => this.classList.remove('copied'), 800);
                     });
                 }
             });
@@ -709,6 +743,41 @@
         });
     }
 
+    function enablePageScrollFallback() {
+        document.addEventListener('wheel', (event) => {
+            // 1. 允许 Ctrl+滚轮 缩放页面
+            if (event.ctrlKey || event.metaKey) return;
+
+            // 2. 代码块滚动链 (Scroll chaining)
+            const pre = event.target && event.target.closest && event.target.closest('.content pre');
+            if (pre) {
+                const isAtTop = pre.scrollTop === 0;
+                const isAtBottom = Math.abs(pre.scrollHeight - pre.scrollTop - pre.clientHeight) < 1;
+                
+                // 如果向上滚且已到顶，或向下滚且已到底，则允许事件冒泡，让外层页面继续滚动
+                if ((event.deltaY < 0 && isAtTop) || (event.deltaY > 0 && isAtBottom)) {
+                    // 穿透到外层
+                } else {
+                    return; // 代码块内部正常滚动，不干预
+                }
+            }
+
+            // 3. 寻找内部滚动容器（编辑模式下的 textarea）
+            const textarea = document.querySelector('textarea');
+            if (textarea && textarea.scrollHeight > textarea.clientHeight) {
+                // 如果鼠标在两侧空白处（不在 textarea 内），手动将滚动事件转发给 textarea
+                if (event.target !== textarea && !textarea.contains(event.target)) {
+                    event.preventDefault();
+                    let delta = event.deltaY;
+                    if (event.deltaMode === 1) delta *= 40; // 行滚动
+                    else if (event.deltaMode === 2) delta *= window.innerHeight; // 页滚动
+                    textarea.scrollTop += delta;
+                }
+            }
+            // 预览模式下，CSS 已经让 body 恢复了原生滚动，直接依赖浏览器原生行为即可，无需 preventDefault
+        }, { passive: false });
+    }
+
     function initDOM() {
         // 创建顶层 UI 元素
         if (!IS_MD) {
@@ -722,6 +791,7 @@
         fixCodeEscaping();
         renderMath();
         addCodeBlockCopy();
+        enablePageScrollFallback();
     }
 
     // 生命周期绑定
