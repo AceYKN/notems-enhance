@@ -502,9 +502,9 @@
         darkBtn.className = 'nme-btn';
         darkBtn.title = '切换暗色模式';
         darkBtn.addEventListener('click', toggleDark);
-        bar.appendChild(darkBtn);
         // 初始化按钮图标
         darkBtn.innerHTML = isDark ? ICONS.sun : ICONS.moon;
+        bar.appendChild(darkBtn);
 
         // 字体缩小
         const smallBtn = document.createElement('button');
