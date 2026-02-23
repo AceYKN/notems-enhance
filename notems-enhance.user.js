@@ -36,6 +36,8 @@
         moon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
         edit: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
         eye: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+        copy: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
+        check: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
     };
 
     /* ========================================================================
@@ -218,8 +220,7 @@
     word-break: break-all !important;
   }
 
-  /* --- 代码块 --- */
-  .content pre {
+  /*position: relative;
     background: var(--nme-code-bg) !important;
     color: var(--nme-code-text) !important;
     padding: 1em 1.2em !important;
@@ -238,6 +239,75 @@
     background: none !important;
     border: none !important;
     padding: 0 !important;
+    font-size: inherit !important;
+    word-break: normal !important;
+  }
+
+  /* --- 代码块复制按钮 --- */
+  .nme-copy-code-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: var(--nme-paper);
+    border: 1px solid var(--nme-border);
+    border-radius: 6px;
+    color: var(--nme-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s, color 0.2s;
+    z-index: 10;
+  }
+  .content pre:hover .nme-copy-code-btn {
+    opacity: 1;
+  }
+  .nme-copy-code-btn:hover {
+    background: var(--nme-code-bg);
+    color: var(--nme-text);
+  }
+  .nme-copy-code-btn.copied {
+    color: #34c759;
+    border-color: #34c759;
+  }
+
+  /* --- 公式复制 --- */
+  .katex-display, .katex {
+    cursor: pointer;
+    transition: opacity 0.2s;
+    position: relative;
+  }
+  .katex-display:hover, .katex:hover {
+    opacity: 0.8;
+  }
+  .katex-display::after, .katex::after {
+    content: "点击复制";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--nme-text);
+    color: var(--nme-paper);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--nme-font-family);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    white-space: nowrap;
+    z-index: 100;
+  }
+  .katex-display:hover::after, .katex:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  .katex-display.copied::after, .katex.copied::after {
+    content: "已复制！";
+    background: #34c759
     font-size: inherit !important;
     word-break: normal !important;
   }
@@ -535,6 +605,26 @@
         });
         bar.appendChild(mdBtn);
 
+        // 一键复制全文
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'nme-btn';
+        copyBtn.title = '复制全文';
+        copyBtn.innerHTML = ICONS.copy;
+        copyBtn.addEventListener('click', () => {
+            const textToCopy = IS_MD ? document.querySelector('.content').innerText : document.querySelector('textarea').value;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerHTML = ICONS.check;
+                copyBtn.style.color = '#34c759';
+                copyBtn.style.borderColor = '#34c759';
+                setTimeout(() => {
+                    copyBtn.innerHTML = ICONS.copy;
+                    copyBtn.style.color = '';
+                    copyBtn.style.borderColor = '';
+                }, 2000);
+            });
+        });
+        bar.appendChild(copyBtn);
+
         document.body.appendChild(bar);
     }
 
@@ -571,6 +661,52 @@
             ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
             throwOnError: false
         });
+
+        // 为渲染后的公式添加点击复制功能
+        document.querySelectorAll('.katex-display, .katex').forEach(el => {
+            el.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // 获取原始的 TeX 代码
+                const texElement = this.querySelector('annotation[encoding="application/x-tex"]');
+                if (texElement) {
+                    const texCode = texElement.textContent;
+                    // 判断是行内公式还是块级公式，加上对应的定界符
+                    const isDisplay = this.classList.contains('katex-display');
+                    const textToCopy = isDisplay ? `$$\n${texCode}\n$$` : `$${texCode}$`;
+                    
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        this.classList.add('copied');
+                        setTimeout(() => this.classList.remove('copied'), 1500);
+                    });
+                }
+            });
+        });
+    }
+
+    function addCodeBlockCopy() {
+        if (!IS_MD) return;
+        document.querySelectorAll('.content pre').forEach(pre => {
+            const btn = document.createElement('button');
+            btn.className = 'nme-copy-code-btn';
+            btn.innerHTML = ICONS.copy;
+            btn.title = '复制代码';
+            
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const code = pre.querySelector('code');
+                const text = code ? code.innerText : pre.innerText;
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.innerHTML = ICONS.check;
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.innerHTML = ICONS.copy;
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+            
+            pre.appendChild(btn);
+        });
     }
 
     function initDOM() {
@@ -585,6 +721,7 @@
         // 内容渲染增强
         fixCodeEscaping();
         renderMath();
+        addCodeBlockCopy();
     }
 
     // 生命周期绑定
